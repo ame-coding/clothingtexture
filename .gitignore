@@ -1,6 +1,17 @@
-datasets/
-features/
+# datasets
+datasets/dtd/*
+!datasets/dtd/.keep
+
+# features
+features/*
+!features/.keep
+
+# outputs
 outputs/
-venv/
+
+# python
 __pycache__/
 *.pyc
+
+# env
+venv/
