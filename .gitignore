@@ -1,17 +1,35 @@
-# datasets
-datasets/dtd/*
-!datasets/dtd/.keep
+#results
+results/*
+!results/.keep
 
-# features
+seg/_pycache__/*
+
+#data
+data/datasets/*
+!data/datasets/.keep
+
+data/fashion_dataset/train/*
+!data/fashion_dataset/train/.keep
+
+data/fashion_dataset/valid/*
+!data/fashion_dataset/valid/.keep
+
+data/fashion_raw/*
+!data/fashion_raw/.keep
+
+data/masked/*
+!data/masked/.keep
+
+data/masks/*
+!data/masks/.keep
+
+pyTorch-StudioGAN/
+
+#features
+
 features/*
 !features/.keep
 
-# outputs
-outputs/
-
-# python
-__pycache__/
-*.pyc
-
-# env
-venv/
+#models
+models/*
+!models/info.txt

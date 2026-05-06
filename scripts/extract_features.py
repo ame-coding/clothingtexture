@@ -1,131 +1,121 @@
-# scripts/extract_features.py
-# PURPOSE: Loads VGG16, reads every DTD texture image,
-#          extracts a feature vector per image, and saves them to /features
-
 import os
 import numpy as np
-from PIL import Image
-from tqdm import tqdm  # progress bar
+import cv2
+import torch
+import gc
+from tqdm import tqdm
+from torchvision import models, transforms
+from torchvision.models import VGG16_Weights
 
-import tensorflow as tf
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras.models import Model
-from tensorflow.keras.applications.vgg16 import preprocess_input
-
-# ─── CONFIG ──────────────────────────────────────────────
-BASE_DIR    = r"D:\MajorProject26"
-DTD_DIR     = os.path.join(BASE_DIR, "datasets", "dtd", "images")
+# ========================
+# CONFIG
+# ========================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+IMAGE_DIR = os.path.join(BASE_DIR, "data", "textures")
 FEATURE_DIR = os.path.join(BASE_DIR, "features")
-IMG_SIZE    = (224, 224)   # VGG16 expects 224x224
-# ─────────────────────────────────────────────────────────
 
+os.makedirs(FEATURE_DIR, exist_ok=True)
 
-# ── STEP A: Build the feature extractor ──────────────────
-print("Loading VGG16 model...")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-base_model = VGG16(
-    weights='imagenet',     # use pretrained ImageNet weights
-    include_top=False,      # remove the final classification layers
-    input_shape=(224, 224, 3)
+torch.set_grad_enabled(False)
+
+# ========================
+# LOAD MODEL
+# ========================
+weights = VGG16_Weights.DEFAULT
+model = models.vgg16(weights=weights).features[:24]
+model = model.to(device)
+model.eval()
+
+print("✅ VGG16 loaded")
+
+# ========================
+# TRANSFORM
+# ========================
+transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+
+# ========================
+# LOAD IMAGES (RECURSIVE)
+# ========================
+image_list = []
+
+for root, _, files in os.walk(IMAGE_DIR):
+    for file in files:
+        if file.lower().endswith(('.jpg', '.png', '.jpeg')):
+            image_list.append(os.path.join(root, file))
+
+print(f"📂 Found {len(image_list)} images")
+
+if len(image_list) == 0:
+    raise ValueError("❌ No images found.")
+
+# ========================
+# CREATE MEMMAP
+# ========================
+num_images = len(image_list)
+feature_dim = 100352  # VGG16 output
+
+features_path = os.path.join(FEATURE_DIR, "features.dat")
+
+features_memmap = np.memmap(
+    features_path,
+    dtype="float32",
+    mode="w+",
+    shape=(num_images, feature_dim)
 )
 
-# We extract features from 'block4_pool'
-# This layer captures mid-level texture info (shapes, patterns, colors)
-# Earlier layers = low-level (edges), Later layers = high-level (objects)
-# block4_pool is the sweet spot for TEXTURE
-feature_extractor = Model(
-    inputs=base_model.input,
-    outputs=base_model.get_layer('block4_pool').output
-)
+paths = []
 
-feature_extractor.trainable = False  # freeze — we're not training VGG16
-print("✓ VGG16 loaded. Feature output shape per image: (14, 14, 512)\n")
+# ========================
+# EXTRACT FEATURES
+# ========================
+for i, img_path in enumerate(tqdm(image_list, desc="Extracting")):
 
+    try:
+        img = cv2.imread(img_path)
 
-# ── STEP B: Image preprocessing function ─────────────────
-def preprocess_image(image_path):
-    """
-    Opens an image, resizes it to 224x224,
-    and applies VGG16's expected normalization.
-    """
-    img = Image.open(image_path).convert('RGB')   # ensure 3 color channels
-    img = img.resize(IMG_SIZE)                    # resize to 224x224
-    arr = np.array(img, dtype=np.float32)         # convert to numpy array
-    arr = np.expand_dims(arr, axis=0)             # shape: (1, 224, 224, 3)
-    arr = preprocess_input(arr)                   # VGG16 normalization (subtracts ImageNet mean)
-    return arr
+        if img is None:
+            print(f"⚠️ Skipped unreadable: {img_path}")
+            continue
 
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = transform(img).unsqueeze(0).to(device)
 
-# ── STEP C: Extract features from one image ──────────────
-def extract_features(image_path):
-    """
-    Returns a flat 1D feature vector for a single image.
-    VGG16 block4_pool output is (1, 14, 14, 512)
-    After flattening → (100352,)
-    """
-    preprocessed = preprocess_image(image_path)
-    feature_map = feature_extractor.predict(preprocessed, verbose=0)  # (1,14,14,512)
-    return feature_map.flatten()  # → (100352,)
+        fmap = model(img)
 
+        feat = fmap.view(-1).cpu().numpy()
+        feat = feat / (np.linalg.norm(feat) + 1e-8)
 
-# ── STEP D: Loop through all DTD categories ──────────────
-print("Starting feature extraction from DTD dataset...\n")
+        features_memmap[i] = feat.astype(np.float32)
+        paths.append(img_path)
 
-categories = sorted(os.listdir(DTD_DIR))
+        # 🔥 MEMORY CLEANUP
+        del img, fmap, feat
 
-# Instead of storing everything in RAM, we save each category separately
-os.makedirs(os.path.join(FEATURE_DIR, "by_category"), exist_ok=True)
+        if i % 50 == 0:
+            gc.collect()
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
 
-all_labels = []
-all_paths  = []
+    except Exception as e:
+        print(f"⚠️ Skipped: {img_path} → {e}")
 
-for category in categories:
-    cat_path = os.path.join(DTD_DIR, category)
-    if not os.path.isdir(cat_path):
-        continue
+# ========================
+# SAVE PATHS
+# ========================
+features_memmap.flush()
 
-    image_files = [f for f in os.listdir(cat_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-    print(f"Processing category: {category} ({len(image_files)} images)")
+np.save(os.path.join(FEATURE_DIR, "paths.npy"), np.array(paths))
 
-    cat_features = []
-
-    for img_file in tqdm(image_files, desc=f"  {category}", ncols=70):
-        img_path = os.path.join(cat_path, img_file)
-        try:
-            feat = extract_features(img_path).astype(np.float16)  # float16 = half the memory
-            cat_features.append(feat)
-            all_labels.append(category)
-            all_paths.append(img_path)
-        except Exception as e:
-            print(f"  Skipped {img_file}: {e}")
-
-    # Save this category's features immediately and free RAM
-    cat_array = np.array(cat_features, dtype=np.float16)
-    save_path = os.path.join(FEATURE_DIR, "by_category", f"{category}.npy")
-    np.save(save_path, cat_array)
-    print(f"  ✓ Saved {category}.npy — shape {cat_array.shape}")
-
-    del cat_features, cat_array  # free RAM before next category
-
-
-# ── STEP E: Merge all category files into one ────────────
-print("\nMerging all categories...")
-
-merged = []
-for category in categories:
-    path = os.path.join(FEATURE_DIR, "by_category", f"{category}.npy")
-    if os.path.exists(path):
-        merged.append(np.load(path))
-
-features_array = np.concatenate(merged, axis=0)   # shape: (5640, 100352)
-labels_array   = np.array(all_labels)
-paths_array    = np.array(all_paths)
-
-np.save(os.path.join(FEATURE_DIR, "dtd_features.npy"), features_array)
-np.save(os.path.join(FEATURE_DIR, "dtd_labels.npy"),   labels_array)
-np.save(os.path.join(FEATURE_DIR, "dtd_paths.npy"),    paths_array)
-
-print(f"✓ dtd_features.npy → shape {features_array.shape}")
-print(f"✓ dtd_labels.npy   → shape {labels_array.shape}")
-print(f"✓ dtd_paths.npy    → shape {paths_array.shape}")
-print(f"\n🎉 Feature extraction complete!")
+print("\n🎉 Feature extraction complete (SAFE)")
+print(f"Saved to: {features_path}")
+print(f"Shape: ({num_images}, {feature_dim})")
