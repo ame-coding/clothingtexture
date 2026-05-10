@@ -33,3 +33,212 @@ features/*
 #models
 models/*
 !models/info.txt
+
+
+# =========================
+# GENERAL
+# =========================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+pythonenv/
+nyaenv/
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+
+# Type checkers
+.mypy_cache/
+.pytype/
+.pyre/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# FastAPI / backend outputs
+backend/outputs/
+outputs/
+
+# Uploaded/generated images
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# Keep example assets if needed
+!assets/example.png
+
+# SQLite databases
+*.sqlite3
+*.db
+
+# =========================
+# PYTORCH / AI
+# =========================
+
+# Model checkpoints
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+
+# HuggingFace cache
+.huggingface/
+cache/
+.hf/
+
+# Torch compile cache
+torch_compile_debug/
+
+# Weights & Biases
+wandb/
+
+# Tensorboard
+runs/
+events.out.tfevents.*
+
+# Diffusers cache
+diffusers_cache/
+
+# CUDA cache
+.cuda/
+
+# =========================
+# NODE / REACT / VITE
+# =========================
+node_modules/
+
+# Vite
+vite.config.timestamp-*
+.vite/
+
+# Build outputs
+dist/
+build/
+
+# npm/yarn/pnpm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package managers
+.pnpm-store/
+.yarn/
+.yarn-cache/
+.yarnrc.yml
+
+# =========================
+# IDE / EDITOR
+# =========================
+
+# VSCode
+.vscode/
+
+# JetBrains
+.idea/
+*.iml
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# =========================
+# LINUX
+# =========================
+*~
+.fuse_hidden*
+.directory
+
+# =========================
+# DOCKER
+# =========================
+docker-compose.override.yml
+
+# =========================
+# NGINX / SERVER
+# =========================
+*.pem
+*.key
+*.crt
+
+# =========================
+# TEMP FILES
+# =========================
+tmp/
+temp/
+cache/
+
+# =========================
+# OPTIONAL:
+# Uncomment if you DO NOT
+# want git to track datasets
+# =========================
+
+# datasets/
+# data/
+# training_data/
+# inference_data/
+
+# =========================
+# OPTIONAL:
+# Uncomment if model files
+# are very large
+# =========================
+
+# models/
+# checkpoints/
