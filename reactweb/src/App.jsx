@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "./App.css";
 
 function App() {
 
@@ -207,60 +208,67 @@ function App() {
   // -----------------------------------
 
   return (
+  <div className="app-container">
 
-    <div
-      style={{
-        padding: "20px",
-        fontFamily: "Arial",
-      }}
-    >
+    <div className="main-card">
 
-      <h1 style={{color : "black"}}>Texture Clothing GAN</h1>
+      <h1 className="title">
+        Texture Clothing GAN
+      </h1>
 
+    {/* IMAGE */}
 
+    <div className="section">
 
-      {/* ---------------------------- */}
-      {/* IMAGE */}
-      {/* ---------------------------- */}
+      <label className="label">
+        Upload Texture Image
+      </label>
 
-      <div>
-
-        <p>Upload Image</p>
+      <label className="upload-box">
 
         <input
           type="file"
           onChange={handleImageChange}
+          className="hidden-input"
         />
 
-      </div>
+        <span className="upload-text">
+          Choose Image
+        </span>
 
+      </label>
 
+      {selectedImage && (
 
-      <br />
+        <p className="file-name">
+          Selected File:
+          {" "}
+          <strong>{selectedImage.name}</strong>
+        </p>
 
+      )}
 
+    </div>
 
-      {/* ---------------------------- */}
       {/* CLASS */}
-      {/* ---------------------------- */}
 
-      <div>
+      <div className="section">
 
-        <p>Select Clothing Class</p>
+        <label className="label">
+          Select Clothing Class
+        </label>
 
         <select
           value={selectedClass}
           onChange={(event) => {
-
             setSelectedClass(event.target.value);
           }}
+          className="select-input"
         >
 
           <option value="">
             Choose One
           </option>
-
-
 
           {classes.map((item) => (
 
@@ -277,94 +285,93 @@ function App() {
 
       </div>
 
+      {/* BUTTON */}
 
-
-      <br />
-
-
-
-      {/* ---------------------------- */}
-      {/* GENERATE */}
-      {/* ---------------------------- */}
-
-      <button onClick={handleGenerate}>
-        Generate
+      <button
+        onClick={handleGenerate}
+        className="generate-button"
+      >
+        Generate Clothing
       </button>
 
-
-
-      <br />
-      <br />
-
-
-
-      {/* ---------------------------- */}
       {/* SERVER RESPONSE */}
-      {/* ---------------------------- */}
 
       {serverResponse && (
 
-        <div>
+        <div className="response-container">
 
-          <h2>Server Response</h2>
-
-
-
-          {/* IMAGE */}
+          <h2 className="response-title">
+            Generated Result
+          </h2>
 
           <img
             src={serverResponse.result.generated_image.url}
             alt="Generated"
-            width="300"
+            className="generated-image"
           />
 
+          <div className="info-grid">
 
+            <div className="info-card">
+              <div className="info-title">
+                Status
+              </div>
 
-          <br />
-          <br />
+              <div className="info-value">
+                {serverResponse.status}
+              </div>
+            </div>
 
+            <div className="info-card">
+              <div className="info-title">
+                Request ID
+              </div>
 
+              <div className="info-value">
+                {serverResponse.request_metadata.request_id}
+              </div>
+            </div>
 
-          {/* RESPONSE DETAILS */}
+            <div className="info-card">
+              <div className="info-title">
+                Selected Class
+              </div>
 
-          <div>
+              <div className="info-value">
+                {serverResponse.user_input.selected_class}
+              </div>
+            </div>
 
-            <p>
-              <strong>Status:</strong>
-              {" "}
-              {serverResponse.status}
-            </p>
+            <div className="info-card">
+              <div className="info-title">
+                Saved Upload
+              </div>
 
-            <p>
-              <strong>Request ID:</strong>
-              {" "}
-              {serverResponse.request_metadata.request_id}
-            </p>
+              <div className="info-value">
+                {serverResponse.upload.saved_filename}
+              </div>
+            </div>
 
-            <p>
-              <strong>Selected Class:</strong>
-              {" "}
-              {serverResponse.user_input.selected_class}
-            </p>
+            <div className="info-card">
+              <div className="info-title">
+                Model
+              </div>
 
-            <p>
-              <strong>Saved Upload:</strong>
-              {" "}
-              {serverResponse.upload.saved_filename}
-            </p>
+              <div className="info-value">
+                {serverResponse.model_info.model_name}
+              </div>
+            </div>
 
-            <p>
-              <strong>Model:</strong>
-              {" "}
-              {serverResponse.model_info.model_name}
-            </p>
+            <div className="info-card">
+              <div className="info-title">
+                Processing Time
+              </div>
 
-            <p>
-              <strong>Processing Time:</strong>
-              {" "}
-              {serverResponse.performance.processing_time_seconds}
-              {" "}seconds
-            </p>
+              <div className="info-value">
+                {serverResponse.performance.processing_time_seconds}
+                {" "}seconds
+              </div>
+            </div>
 
           </div>
 
@@ -373,7 +380,9 @@ function App() {
       )}
 
     </div>
-  );
+
+  </div>
+);
 }
 
 export default App;
