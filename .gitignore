@@ -1,8 +1,10 @@
+**/uploads/
+
 #results
 results/*
 !results/.keep
 
-seg/_pycache__/*
+**/_pycache__/
 
 #data
 data/datasets/*
