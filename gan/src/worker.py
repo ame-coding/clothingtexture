@@ -42,7 +42,6 @@ import utils.sefa as sefa
 import utils.ops as ops
 import utils.resize as resize
 import utils.apa_aug as apa_aug
-import wandb
 
 SAVE_FORMAT = "step={step:0>3}-Inception_mean={Inception_mean:<.4}-Inception_std={Inception_std:<.4}-FID={FID:<.5}.pth"
 
@@ -177,7 +176,6 @@ class WORKER(object):
 
         if self.global_rank == 0:
             resume = False if self.RUN.freezeD > -1 else True
-            wandb.init(project=self.RUN.project,
                        entity=self.RUN.entity,
                        name=self.run_name,
                        dir=self.RUN.save_dir,
@@ -684,7 +682,6 @@ class WORKER(object):
     # log training statistics
     # -----------------------------------------------------------------------------
     def log_train_statistics(self, current_step, real_cond_loss, gen_acml_loss, dis_acml_loss):
-        self.wandb_step = current_step + 1
         if self.MODEL.d_cond_mtd in self.MISC.classifier_based_GAN:
             cls_loss = real_cond_loss.item()
         else:
@@ -702,14 +699,12 @@ class WORKER(object):
         )
         self.logger.info(log_message)
 
-        # save loss values in wandb event file and .npz format
         loss_dict = {
             "gen_loss": gen_acml_loss.item(),
             "dis_loss": dis_acml_loss.item(),
             "cls_loss": 0.0 if cls_loss == "N/A" else cls_loss,
         }
 
-        wandb.log(loss_dict, step=self.wandb_step)
 
         save_dict = misc.accm_values_convert_dict(list_dict=self.loss_list_dict,
                                                   value_dict=loss_dict,
@@ -726,31 +721,24 @@ class WORKER(object):
                         "dis_logit_real": (self.dis_logit_real_log[0]/self.dis_logit_real_log[1]).item(),
                         "dis_logit_fake": (self.dis_logit_fake_log[0]/self.dis_logit_fake_log[1]).item(),
                     }
-            wandb.log(dis_output_dict, step=self.wandb_step)
-            wandb.log({"aa_p": self.aa_p.item()}, step=self.wandb_step)
 
         infoGAN_dict = {}
         if self.MODEL.info_type in ["discrete", "both"]:
             infoGAN_dict["info_discrete_loss"] = self.info_discrete_loss.item()
         if self.MODEL.info_type in ["continuous", "both"]:
             infoGAN_dict["info_conti_loss"] = self.info_conti_loss.item()
-            wandb.log(infoGAN_dict, step=self.wandb_step)
 
         if self.LOSS.apply_r1_reg:
-            wandb.log({"r1_reg_loss": self.r1_penalty.item()}, step=self.wandb_step)
 
         if self.STYLEGAN.apply_pl_reg:
-            wandb.log({"pl_reg_loss": self.pl_reg_loss.item()}, step=self.wandb_step)
 
         # calculate the spectral norms of all weights in the generator for monitoring purpose
         if self.MODEL.apply_g_sn:
             gen_sigmas = misc.calculate_all_sn(self.Gen, prefix="Gen")
-            wandb.log(gen_sigmas, step=self.wandb_step)
 
         # calculate the spectral norms of all weights in the discriminator for monitoring purpose
         if self.MODEL.apply_d_sn:
             dis_sigmas = misc.calculate_all_sn(self.Dis, prefix="Dis")
-            wandb.log(dis_sigmas, step=self.wandb_step)
 
     # -----------------------------------------------------------------------------
     # visualize fake images for monitoring purpose.
@@ -795,7 +783,6 @@ class WORKER(object):
                              logging=self.global_rank == 0 and self.logger)
 
         if self.RUN.train:
-            wandb.log({"generated_images": wandb.Image(fake_images)}, step=self.wandb_step)
 
         misc.make_GAN_trainable(self.Gen, self.Gen_ema, self.Dis)
 
@@ -861,10 +848,7 @@ class WORKER(object):
                             eval_model=self.RUN.eval_backbone, step=step, num=str(self.num_eval[self.RUN.ref_dataset]), Top5=top5))
                     metric_dict.update({"IS": kl_score, "Top1_acc": top1, "Top5_acc": top5})
                     if writing:
-                        wandb.log({"IS score": kl_score}, step=self.wandb_step)
                         if is_acc:
-                            wandb.log({"{eval_model} Top1 acc".format(eval_model=self.RUN.eval_backbone): top1}, step=self.wandb_step)
-                            wandb.log({"{eval_model} Top5 acc".format(eval_model=self.RUN.eval_backbone): top5}, step=self.wandb_step)
 
             if "fid" in metrics:
                 fid_score, m1, c1 = fid.calculate_fid(data_loader=self.eval_dataloader,
@@ -882,7 +866,6 @@ class WORKER(object):
                         self.best_fid, self.best_step, is_best = fid_score, step, True
                     metric_dict.update({"FID": fid_score})
                     if writing:
-                        wandb.log({"FID score": fid_score}, step=self.wandb_step)
                     if training:
                         self.logger.info("Best FID score (Step: {step}, Using {type} moments): {FID}".format(
                             step=self.best_step, type=self.RUN.ref_dataset, FID=self.best_fid))
@@ -910,10 +893,6 @@ class WORKER(object):
                         step=step, type=self.RUN.ref_dataset, cvg=cvg))
                     metric_dict.update({"Improved_Precision": prc, "Improved_Recall": rec, "Density": dns, "Coverage": cvg})
                     if writing:
-                        wandb.log({"Improved Precision": prc}, step=self.wandb_step)
-                        wandb.log({"Improved Recall": rec}, step=self.wandb_step)
-                        wandb.log({"Density": dns}, step=self.wandb_step)
-                        wandb.log({"Coverage": cvg}, step=self.wandb_step)
 
             if self.global_rank == 0:
                 if training:
