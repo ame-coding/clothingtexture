@@ -13,6 +13,8 @@ import uuid
 import shutil
 import time
 
+import subprocess
+
 
 
 app = FastAPI()
@@ -116,14 +118,14 @@ async def generate(
 
     selected_class = user_input["selected_class"]
 
-
+    uid = uuid.uuid4()
 
     # ---------------------------------------
     # SAVE UPLOADED IMAGE
     # ---------------------------------------
 
     saved_filename = (
-        f"{uuid.uuid4()}_{image.filename}"
+        f"{uid}_texture.jpg"
     )
 
     upload_path = os.path.join(
@@ -142,12 +144,21 @@ async def generate(
 
 
 
+    subprocess.run(
+    [
+        "python",
+        "ganseg.py",
+        "--uuid", f"{uid}",
+        "--prompt", f"{selected_class}"
+    ]
+    )
+
     # ---------------------------------------
     # GENERATED IMAGE
     # ---------------------------------------
 
     generated_image_url = (
-        f"http://localhost:8000/clothing/{selected_class}.jpg"
+        f"http://localhost:8000/finished/{uid}_final.jpg"
     )
 
 

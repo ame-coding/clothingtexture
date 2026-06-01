@@ -1,30 +1,28 @@
 import os
 import cv2
 import numpy as np
+import argparse
+from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+parser = argparse.ArgumentParser()
 
-IMG_DIR = os.path.join(BASE_DIR, "data", "fashion_raw")
-MASK_DIR = os.path.join(BASE_DIR, "data", "masks")
-OUT_DIR = os.path.join(BASE_DIR, "data", "masked")
+# Add arguments
+parser.add_argument("--uuid", type=str, required=True)
 
-os.makedirs(OUT_DIR, exist_ok=True)
+# Parse command line
+args = parser.parse_args()
 
-# =========================
-# RECURSIVE PROCESS
-# =========================
-for root, _, files in os.walk(IMG_DIR):
-    for file in files:
-        if not file.lower().endswith(('.jpg', '.png', '.jpeg')):
-            continue
+uid = args.uuid
 
-        img_path = os.path.join(root, file)
 
-        rel_path = os.path.relpath(img_path, IMG_DIR)
-        mask_path = os.path.join(MASK_DIR, rel_path)
-        out_path = os.path.join(OUT_DIR, rel_path)
+ROOT = Path(__file__).resolve().parent.parent
 
-        try:
+mask_path = ROOT / f"outputs/{uid}_mask.jpg"
+out_path = ROOT / f"server/finished/{uid}_final.jpg"
+img_path=ROOT / f"server/uploads/{uid}_texture.jpg"
+
+
+try:
             img = cv2.imread(img_path)
             mask = cv2.imread(mask_path, 0)
 
@@ -33,10 +31,10 @@ for root, _, files in os.walk(IMG_DIR):
 
             masked = img * mask[:, :, None]
 
-            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
             cv2.imwrite(out_path, masked.astype("uint8"))
 
-        except Exception as e:
+except Exception as e:
             print(f"Skipped: {img_path} → {e}")
 
 print("🎉 Masked images created")
