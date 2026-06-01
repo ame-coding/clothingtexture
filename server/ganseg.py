@@ -1,43 +1,49 @@
-import subprocess
+import os
 import uuid
 from pathlib import Path
 
-from seg.segtext import apply_texture
+import subprocess
+import argparse
+
+
+parser = argparse.ArgumentParser()
+
+# Add arguments
+parser.add_argument("--uuid", type=str, required=True)
+parser.add_argument("--prompt", type=str, required=True)
+# Parse command line
+args = parser.parse_args()
+
+uid = args.uuid
+pmt=args.prompt
 
 ROOT = Path(__file__).resolve().parent.parent
 
-GENERATED_DIR = ROOT / "server/generated"
-FINAL_DIR = ROOT / "server/final"
-
-
-def generate_pipeline(prompt, texture_path):
-
-    uid = str(uuid.uuid4())
-
-    generated_image = GENERATED_DIR / f"{uid}.png"
-    final_image = FINAL_DIR / f"{uid}.png"
-
-    # ---------------------------------
-    # STEP 1: RUN STUDIOGAN
-    # ---------------------------------
-
-    subprocess.run([
+subprocess.run(
+    [
         "python",
-        "gan/generate.py",
-        "--prompt",
-        prompt,
-        "--output",
-        str(generated_image)
-    ], check=True)
+        "../gan/src/main.py",
+        "-cfg ../gan/src/configs/CIFAR10/BigGAN-ADA.yaml \\",
+        "-ckpt ../models/model=G-current-weights-step=8000.pth \\"
+        "-save ../results \\"
+        "-sf \\"
+        "-sf_num 10"
+    ]    
+)
 
-    # ---------------------------------
-    # STEP 2: APPLY TEXTURE
-    # ---------------------------------
+subprocess.run(
+    [
+        "python",
+        "../scripts/ganerate_masks.py",
+        "--uuid", f"{uid}",
+        "--genimg", f"{genimgpath}"
+    ]    
+)
 
-    apply_texture(
-        clothing_image=str(generated_image),
-        texture_image=str(texture_path),
-        output_path=str(final_image)
-    )
-
-    return str(final_image)
+subprocess.run(
+    [
+        "python",
+        "../scripts/apply_masks.py",
+        "--uuid", f"{uid}",
+    ]    
+)
