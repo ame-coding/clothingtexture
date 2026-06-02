@@ -27,16 +27,27 @@ subprocess.run(
         "-ckpt ../models/model=G-current-weights-step=8000.pth \\"
         "-save ../results \\"
         "-sf \\"
-        "-sf_num 10"
+        "-sf_num 1"
     ]    
 )
+
+results_dir = ROOT /"results"
+
+for file in results_dir.iterdir():
+    if (
+        file.is_file()
+        and not file.name.startswith("clothinggen_")
+        and file.suffix.lower() in [".jpg", ".jpeg", ".png"]
+    ):
+        file.rename(results_dir / f"clothinggen_{uid}.jpg")
+        break
 
 subprocess.run(
     [
         "python",
         "../scripts/ganerate_masks.py",
         "--uuid", f"{uid}",
-        "--genimg", f"{genimgpath}"
+
     ]    
 )
 
