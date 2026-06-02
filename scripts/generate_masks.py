@@ -13,12 +13,11 @@ parser = argparse.ArgumentParser()
 
 # Add arguments
 parser.add_argument("--uuid", type=str, required=True)
-parser.add_argument("--genimg", type=str, required=True)
-# Parse command line
+
 args = parser.parse_args()
 
 uid = args.uuid
-genimg=args.genimg
+
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -50,7 +49,7 @@ def normalize(mask):
     return (mask - mask.min()) / (mask.max() - mask.min() + 1e-8)
 
 
-img_path= INPUT_DIR/genimg
+img_path= INPUT_DIR/ f"clothinggen_{uid}.jpg"
 
 try:
         image = Image.open(img_path).convert("RGB")
