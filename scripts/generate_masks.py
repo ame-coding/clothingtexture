@@ -52,25 +52,25 @@ def normalize(mask):
 img_path= INPUT_DIR/ f"clothinggen_{uid}.jpg"
 
 try:
-        image = Image.open(img_path).convert("RGB")
-        original_size = image.size
+    image = Image.open(img_path).convert("RGB")
+    original_size = image.size
 
-        inp = transform(image).unsqueeze(0).to(device)
+    inp = transform(image).unsqueeze(0).to(device)
 
-        with torch.no_grad():
-            d1, *_ = model(inp)
+    with torch.no_grad():
+        d1, *_ = model(inp)
 
-        mask = d1[:, 0, :, :].squeeze().cpu().numpy()
-        mask = normalize(mask)
-        mask = (mask * 255).astype(np.uint8)
+    mask = d1[:, 0, :, :].squeeze().cpu().numpy()
+    mask = normalize(mask)
+    mask = (mask * 255).astype(np.uint8)
 
-        mask = cv2.resize(mask, original_size)
+    mask = cv2.resize(mask, original_size)
 
-        outpath = Path(OUTPUT_DIR) / f"{uid}_mask.jpg"
-        cv2.imwrite(outpath, mask)
+    outpath = Path(OUTPUT_DIR) / f"{uid}_mask.jpg"
+    cv2.imwrite(outpath, mask)
 
 
 except Exception as e:
-        print(f"Skipped: {img_path} → {e}")
+    print(f"Skipped: {img_path} → {e}")
 
 print("🎉 Masks generated")
