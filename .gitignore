@@ -1,14 +1,24 @@
 
 
-#results
-results/*
-!results/.keep
+# Results (ignore completely)
+results/
+
+report/*
+!report/report.txt
 
 **/_pycache__/
 
 #data
 data/datasets/*
 !data/datasets/.keep
+
+# Outputs
+outputs/*
+!outputs/.keep
+!outputs/outputs.md
+
+u2net/saved_models/*
+!u2net/saved_models/.keep
 
 data/fashion_dataset/train/*
 !data/fashion_dataset/train/.keep
@@ -236,11 +246,14 @@ cache/
 # training_data/
 # inference_data/
 
-# =========================
-# OPTIONAL:
-# Uncomment if model files
-# are very large
-# =========================
+=========================
+OPTIONAL:
+Uncomment if model files
+are very large
+=========================
 
-# models/
-# checkpoints/
+models/
+checkpoints/
+
+
+

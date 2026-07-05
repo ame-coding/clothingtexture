@@ -1,8 +1,4 @@
-from fastapi import FastAPI
-from fastapi import UploadFile
-from fastapi import File
-from fastapi import Form
-
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,18 +8,11 @@ import json
 import uuid
 import shutil
 import time
+import random
 
-import subprocess
-
-
+from texture_transfer import TextureTransfer
 
 app = FastAPI()
-
-
-
-# ---------------------------------------
-# CORS
-# ---------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,243 +22,114 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
-# ---------------------------------------
-# FOLDERS
-# ---------------------------------------
-
 UPLOAD_FOLDER = "uploads"
-
-CLOTHING_FOLDER = "clothing"
+FINISHED_FOLDER = "finished"
+SELECTED_FOLDER = "selected"   # precomputed garments
+MASKS_FOLDER = "masks"         # precomputed masks (same filenames as selected/)
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(FINISHED_FOLDER, exist_ok=True)
 
+# Serve the finished (textured) images
+app.mount("/finished", StaticFiles(directory=FINISHED_FOLDER), name="finished")
 
+tt = TextureTransfer()
 
-# Serve clothing images
-app.mount(
-    "/clothing",
-    StaticFiles(directory="clothing"),
-    name="clothing"
-)
-
-
-
-# ---------------------------------------
-# GET CLASSES
-# ---------------------------------------
 
 @app.get("/classes")
 def get_classes():
+    with open("classes.json", "r") as f:
+        return json.load(f)
 
-    with open("classes.json", "r") as file:
-
-        data = json.load(file)
-
-    return data
-
-
-
-# ---------------------------------------
-# GENERATE
-# ---------------------------------------
 
 @app.post("/generate")
 async def generate(
-
     image: UploadFile = File(...),
-
-    request_data: str = Form(...)
+    request_data: str = Form(...),
 ):
-
-
-    # ---------------------------------------
-    # START TIMER
-    # ---------------------------------------
-
     start_time = time.time()
 
-
-
-    # ---------------------------------------
-    # PARSE JSON REQUEST
-    # ---------------------------------------
-
     parsed_request = json.loads(request_data)
-
-
-
-    # ---------------------------------------
-    # EXTRACT REQUEST DATA
-    # ---------------------------------------
-
     request_metadata = parsed_request["request_metadata"]
-
     user_input = parsed_request["user_input"]
-
-    generation_settings = parsed_request["generation_settings"]
-
-    model_settings = parsed_request["model_settings"]
-
-    output_settings = parsed_request["output_settings"]
-
-
-
     selected_class = user_input["selected_class"]
 
     uid = uuid.uuid4()
 
     # ---------------------------------------
-    # SAVE UPLOADED IMAGE
+    # SAVE UPLOADED TEXTURE
     # ---------------------------------------
+    texture_filename = f"{uid}_texture.jpg"
+    texture_path = os.path.join(UPLOAD_FOLDER, texture_filename)
 
-    saved_filename = (
-        f"{uid}_texture.jpg"
-    )
+    with open(texture_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
 
-    upload_path = os.path.join(
-        UPLOAD_FOLDER,
-        saved_filename
-    )
+    # ---------------------------------------
+    # PICK A PRECOMPUTED GARMENT FOR THIS CLASS
+    # ---------------------------------------
+    class_garment_dir = os.path.join(SELECTED_FOLDER, selected_class)
+    class_mask_dir = os.path.join(MASKS_FOLDER, selected_class)
 
-
-
-    with open(upload_path, "wb") as buffer:
-
-        shutil.copyfileobj(
-            image.file,
-            buffer
+    if not os.path.isdir(class_garment_dir):
+        return JSONResponse(
+            {"status": "error", "message": f"Unknown class: {selected_class}"},
+            status_code=404,
         )
 
-
-
-    subprocess.run(
-    [
-        "python",
-        "ganseg.py",
-        "--uuid", f"{uid}",
-        "--prompt", f"{selected_class}"
+    garment_files = [
+        f for f in os.listdir(class_garment_dir)
+        if f.lower().endswith((".jpg", ".jpeg", ".png"))
     ]
+
+    if not garment_files:
+        return JSONResponse(
+            {"status": "error", "message": f"No garments found for {selected_class}"},
+            status_code=404,
+        )
+
+    chosen_file = random.choice(garment_files)
+    garment_path = os.path.join(class_garment_dir, chosen_file)
+    mask_path = os.path.join(class_mask_dir, chosen_file)
+
+    if not os.path.exists(mask_path):
+        return JSONResponse(
+            {"status": "error", "message": f"Mask missing for {chosen_file}"},
+            status_code=404,
+        )
+
+    # ---------------------------------------
+    # APPLY TEXTURE
+    # ---------------------------------------
+    output_filename = f"{uid}_final.jpg"
+    output_path = os.path.join(FINISHED_FOLDER, output_filename)
+
+    tt.apply_texture(
+        garment_path=garment_path,
+        mask_path=mask_path,
+        texture_path=texture_path,
+        output_path=output_path,
     )
 
-    # ---------------------------------------
-    # GENERATED IMAGE
-    # ---------------------------------------
-
-    generated_image_url = (
-        f"http://localhost:8000/finished/{uid}_final.jpg"
-    )
-
-
-
-    # ---------------------------------------
-    # PERFORMANCE INFO
-    # ---------------------------------------
-
-    end_time = time.time()
-
-    processing_time = round(
-        end_time - start_time,
-        4
-    )
-
-
-
-    # ---------------------------------------
-    # RESPONSE
-    # ---------------------------------------
+    generated_image_url = f"http://localhost:8000/finished/{output_filename}"
+    processing_time = round(time.time() - start_time, 4)
 
     response = {
-
         "status": "success",
-
         "message": "Generation completed successfully",
-
-
-
-        "request_metadata": {
-
-            "request_id":
-                request_metadata["request_id"],
-
-            "timestamp":
-                request_metadata["timestamp"],
-
-            "request_type":
-                request_metadata["request_type"],
-        },
-
-
-
-        "user_input": {
-
-            "selected_class":
-                selected_class,
-        },
-
-
-
+        "request_metadata": request_metadata,
+        "user_input": {"selected_class": selected_class},
         "upload": {
-
-            "original_filename":
-                image.filename,
-
-            "saved_filename":
-                saved_filename,
-
-            "upload_path":
-                upload_path,
+            "original_filename": image.filename,
+            "saved_filename": texture_filename,
         },
-
-
-
-        "generation_settings":
-            generation_settings,
-
-
-
-        "model_info": {
-
-            "model_name":
-                model_settings["model_name"],
-
-            "device":
-                model_settings["device"],
-        },
-
-
-
-        "performance": {
-
-            "processing_time_seconds":
-                processing_time,
-        },
-
-
-
+        "source_garment": chosen_file,
+        "performance": {"processing_time_seconds": processing_time},
         "result": {
-
-            "generated_image": {
-
-                "url":
-                    generated_image_url,
-
-                "width":
-                    300,
-
-                "height":
-                    300,
-            }
+            "generated_image": {"url": generated_image_url}
         },
-
-
-
         "errors": [],
-
-        "warnings": []
+        "warnings": [],
     }
-
-
 
     return JSONResponse(response)

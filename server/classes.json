@@ -1,9 +1,3 @@
 {
-  "classes": [
-    "shirt",
-    "skirt",
-    "blazer",
-    "pants",
-    "dress"
-  ]
+  "classes": ["blazer", "dress", "pants", "shirt", "skirt"]
 }
